@@ -1,0 +1,9 @@
+PIL
+ipython
+flickrapi
+bitlyapi
+gdata
+python-twitter
+requests
+pyexiv2
+
