@@ -99,8 +99,9 @@ class RedBubbleClient(object):
             files = { 'work_image[image]': f }
             response = requests.post('http://uploads.redbubble.com/work_images', data={}, files=files, cookies=self.cookiejar)
         print response.status_code
-        print response.headers
-        print response.content
+        if self.debug:
+            print response.headers
+            print response.content
         '''<html><head>
     <script type="text/javascript">
       document.domain='redbubble.com';
@@ -150,8 +151,8 @@ class RedBubbleClient(object):
                 data['work[group_ids][%s]' % self._groupmappings[tag]] = '1'
 
         response = requests.post('http://www.redbubble.com/mybubble/art', data=data, cookies=self.cookiejar)
+        print response.status_code
         if self.debug:
-            print response.status_code
             print response.headers
             print response.content
         
@@ -162,53 +163,3 @@ class RedBubbleClient(object):
         
         return "http://www.redbubble.com/people/%s/art/%s" % (self.user, url), thumburl
 
-'''
-
-#token=$(curl    -A "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1.8) Gecko/20071022 Ubuntu/7.10 (gutsy) Firefox/2.0.0.8" \
-#        -b /home/roger/.cookies.txt -c /tmp/newcookies.txt  \
-#        http://www.redbubble.com/mybubble/art/new | grep name=\"token\" | sed 's/^.*value=\"\([^\"]\+\)\" \/>/\1/')
-#       -x localhost:3129 \
-#       -F "commit=Add+This+Image+to+RedBubble" \
-
-read key size < <(curl -F "work_image[image]=@$1" \
-        -A "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1.8) Gecko/20071022 Ubuntu/7.10 (gutsy) Firefox/2.0.0.8" \
-        -b /home/roger/.cookies.txt -c /tmp/newcookies.txt  \
-        -0 -s \
-        http://uploads.redbubble.com/work_images | grep onSuccess | sed 's/^.*(\(.*\)).*$/\1/' | tr ',' ' ')
-echo $key $size $1 $2 $3 $4 $rbgroups
-#        -F "work[make_work_available]=true" \
-curl    -F "work[remote_work_image_key]=$key" \
-        -F "work[remote_work_image_file_size]=$size" \
-        -F "work[title]=$2" \
-        -F "work[description]=$3" \
-        -F "work[tag_field]=${4// /,}" \
-        -F "work[media_codes][photography]=0" \
-        -F "work[media_codes][photography]=1" \
-        -F "work[media_codes][design]=0" \
-        -F "work[media_codes][painting]=0" \
-        -F "work[media_codes][drawing]=0" \
-        -F "work[media_codes][digital]=0" \
-        -F "work[hidden]=0" \
-        -F "work[not_safe_for_work]=0" \
-        $rbgroups \
-        -F "work[group_ids][-1]=" \
-        -F "work[available_product_types][13]=0" \
-        -F "work[available_product_types][13]=1" \
-        -F "work[available_product_types][16]=0" \
-        -F "work[available_product_types][16]=1" \
-        -F "work[available_product_types][9]=0" \
-        -F "work[available_product_types][9]=1" \
-        -F "work[available_product_types][8]=0" \
-        -F "work[available_product_types][8]=1" \
-        -F "work[available_product_types][12]=0" \
-        -F "work[available_product_types][12]=1" \
-        -F "work[available_product_types][7]=0" \
-        -F "work[available_product_types][7]=1" \
-        -F "work[available_product_types][14]=0" \
-        -F "work[available_product_types][14]=1" \
-        -F "work[markup_percentage]=40.0" \
-        -A "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1.8) Gecko/20071022 Ubuntu/7.10 (gutsy) Firefox/2.0.0.8" \
-        -b /home/roger/.cookies.txt -c /tmp/newcookies.txt  \
-        -0 -s \
-        http://www.redbubble.com/mybubble/art
-'''
