@@ -41,19 +41,19 @@ def resize_image(source_path, dest_path, size, maxsize=7000):
     return filename
 
 class POTDRecord(object):
-    def _getcontainerid(self, cursor, nodename):
+    def _get_containerid(self, cursor, nodename):
         cursor.execute("""select containerinfo.id from containerinfo join paths on containerinfo.pathid = paths.id where nodename = ?""", (nodename,))
         return cursor.fetchone()[0]
 
-    def _getchildid(self, cursor, containerid):
+    def _get_childid(self, cursor, containerid):
         cursor.execute("""select childid, name from container where id=? and type=2 and remove=0 order by userorder limit 1""", (containerid,))
         return cursor.fetchone()
     
-    def _getsettingid(self, cursor, childid):
+    def _get_settingid(self, cursor, childid):
         cursor.execute("""select settingid from version where id=?""", (childid,))
         return cursor.fetchone()[0]
 
-    def _getsettings(self, cursor, settingid):
+    def _get_settings(self, cursor, settingid):
         mapping = { "Headline": "caption", "description": "description" }
         cursor.execute("""select name, value from NewSettings where settingsid=?""", (settingid,))
         for row in cursor.fetchall():
@@ -79,17 +79,17 @@ class POTDRecord(object):
 
             self.queuefolder = "Flat Import"
             self.donefolder = "done"
-            self.queuecontainerid = self._getcontainerid(cursor, self.queuefolder)
-            self.donecontainerid = self._getcontainerid(cursor, self.donefolder)
-            self.childid, filename = self._getchildid(cursor, self.queuecontainerid)
+            self.queuecontainerid = self._get_containerid(cursor, self.queuefolder)
+            self.donecontainerid = self._get_containerid(cursor, self.donefolder)
+            self.childid, filename = self._get_childid(cursor, self.queuecontainerid)
             self.data['filename'] = os.path.join(settings.BIBBLE_DB, 'assets', self.queuefolder, filename)
-            self.settingid = self._getsettingid(cursor, self.childid)
+            self.settingid = self._get_settingid(cursor, self.childid)
 
         with sqlite3.connect(os.path.join(settings.BIBBLE_DB, 'settings')) as conn:
             conn.row_factory = sqlite3.Row
             conn.text_factory = str
             cursor = conn.cursor()
-            self._getsettings(cursor, self.settingid)
+            self._get_settings(cursor, self.settingid)
         
         assert 'filename' in self.data
         assert 'caption' in self.data
@@ -113,7 +113,7 @@ def shorten(longUrl):
 
 class POTD(object):
 
-    def _checkForTag(self, tag):
+    def _check_for_tag(self, tag):
         setattr(self, tag, False)
         if tag in self.data['tags']:
             setattr(self, tag, True)
@@ -123,16 +123,16 @@ class POTD(object):
         self.data = potdrecord.data
         self.shorturl = None
         self.rburl = None
-        self._processImage()
-        self._checkForTag('noflickr')
-        self._checkForTag('noredbubble')
-        self._checkForTag('nopicasa')
+        self._process_image()
+        self._check_for_tag('noflickr')
+        self._check_for_tag('noredbubble')
+        self._check_for_tag('nopicasa')
     
-    def _processImage(self, size=1024, ext='.jpg'):
+    def _process_image(self, size=1024, ext='.jpg'):
         self.resizedfilename = os.path.join(settings.RESIZE_PATH, os.path.basename(self.data['filename']) + ext)
         self.data['filename'] = resize_image(self.data['filename'], self.resizedfilename, (size,size))
     
-    def uploadToRedbubble(self):
+    def upload_redbubble(self):
         if self.noredbubble:
             print "Skipping redbubble"
             return
@@ -143,7 +143,7 @@ class POTD(object):
         self.shorturl = shorten(self.rburl)
         print self.rburl, self.shorturl, self.thumburl
     
-    def uploadToFlickr(self):
+    def upload_flickr(self):
         if self.noflickr:
             print "Skipping flickr"
             return
@@ -151,7 +151,7 @@ class POTD(object):
         result = flickr.upload(self.resizedfilename, title=self.data['caption'], description=self.data['description'], tags=" ".join(self.data['tags']))
         print "Uploaded to flickr: " + result.attrib['stat'] + " id:" + result.find('photoid').text
 
-    def uploadToPicasa(self):
+    def upload_picasa(self):
         if self.nopicasa:
             print "Skipping picasa"
             return
@@ -167,23 +167,23 @@ class POTD(object):
         
         print "Uploaded to picasa: " + new_entry.title.text
     
-    def _getPostText(self):
+    def _get_post_text(self):
         postdict = dict(self.data)
         postdict["shorturl"] = self.shorturl
         postdict["thumburl"] = self.thumburl
         return """<p><a href="%(shorturl)s"><img src="%(thumburl)s" border="0" alt="%(caption)s"></a><br><a href="%(shorturl)s">%(caption)s</a></p><p>%(description)s</p>""" % postdict
 
-    def postToWordpress(self):
+    def post_wordpress(self):
         if self.noredbubble:
             print "Skipping wordpress"
             return        
         # from http://www.jansipke.nl/using-python-to-add-new-posts-in-wordpress
         server = xmlrpclib.ServerProxy(settings.WORDPRESS_URL)
-        data = {'title': self.data['caption'], 'description': self._getPostText(), 'categories': ["photography", "potd"], 'mt_keywords': self.data['tags']}
+        data = {'title': self.data['caption'], 'description': self._get_post_text(), 'categories': ["photography", "potd"], 'mt_keywords': self.data['tags']}
         postid = server.metaWeblog.newPost("", settings.WORDPRESS_USER, settings.WORDPRESS_PASSWORD, data, 1)
         print "Posted to wordpress: " + postid
     
-    def postToTwitter(self):
+    def post_twitter(self):
         if self.noredbubble:
             print "Skipping twitter"
             return        
@@ -207,9 +207,9 @@ if __name__ == '__main__':
     potdrecord = POTDRecord()
     print potdrecord.toString()
     potd = POTD(potdrecord)
-    potd.uploadToRedbubble()
-    potd.uploadToFlickr()
-    potd.uploadToPicasa()
-    potd.postToWordpress()
-    potd.postToTwitter()
+    potd.upload_redbubble()
+    potd.upload_flickr()
+    potd.upload_picasa()
+    potd.post_wordpress()
+    potd.post_twitter()
     potdrecord.moveToDone()
