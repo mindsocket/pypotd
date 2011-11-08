@@ -97,7 +97,7 @@ class RedBubbleClient(object):
         requests.settings.verbose = sys.stderr
         with open(filename) as f:
             files = { 'work_image[image]': f }
-            response = requests.post('http://uploads.redbubble.com/work_images', data={}, files=files, cookies=self.cookiejar)
+            response = requests.post('http://uploads.redbubble.com/work_images', data={'image_type': 'print'}, files=files, cookies=self.cookiejar)
         print response.status_code
         if self.debug:
             print response.headers
@@ -113,9 +113,10 @@ class RedBubbleClient(object):
         key = results.group(1)
         size = results.group(2)
         '''"work%5Bremote_work_image_key%5D=10564369&work%5Bremote_work_image_file_size%5D=1531183&work%5Btitle%5D=&work%5Bdescription%5D=&work%5Btag_field%5D=test%2C+tag%2C+123&work%5Bmedia_codes%5D%5Bphotography%5D=0&work%5Bmedia_codes%5D%5Bphotography%5D=1&work%5Bmedia_codes%5D%5Bdesign%5D=0&work%5Bmedia_codes%5D%5Bpainting%5D=0&work%5Bmedia_codes%5D%5Bdrawing%5D=0&work%5Bmedia_codes%5D%5Bdigital%5D=0&work%5Bhidden%5D=0&work%5Bnot_safe_for_work%5D=0&work%5Bgroup_ids%5D%5B108%5D=1&work%5Bgroup_ids%5D%5B1240%5D=1&work%5Bgroup_ids%5D%5B1683%5D=1&work%5Bgroup_ids%5D%5B688%5D=1&work%5Bgroup_ids%5D%5B450%5D=1&work%5Bgroup_ids%5D%5B-1%5D=&work%5Bavailable_product_types%5D%5B13%5D=0&work%5Bavailable_product_types%5D%5B13%5D=1&work%5Bavailable_product_types%5D%5B19%5D=0&work%5Bavailable_product_types%5D%5B19%5D=1&work%5Bavailable_product_types%5D%5B16%5D=0&work%5Bavailable_product_types%5D%5B16%5D=1&work%5Bavailable_product_types%5D%5B9%5D=0&work%5Bavailable_product_types%5D%5B9%5D=1&work%5Bavailable_product_types%5D%5B8%5D=0&work%5Bavailable_product_types%5D%5B8%5D=1&work%5Bavailable_product_types%5D%5B12%5D=0&work%5Bavailable_product_types%5D%5B12%5D=1&work%5Bavailable_product_types%5D%5B7%5D=0&work%5Bavailable_product_types%5D%5B7%5D=1&work%5Bavailable_product_types%5D%5B14%5D=0&work%5Bavailable_product_types%5D%5B14%5D=1&work%5Bmarkup_percentage%5D=40.0"'''
+        product_types = ['greeting-card', 'photographic-print', 'matted-print', 'laminated-print', 'mounted-print', 'canvas-print', 'framed-print', 'poster', ]
         data = {
-                'work[remote_work_image_key]': key,
-                'work[remote_work_image_file_size]': size, 
+                'image[print][remote_key]': key,
+                'image[print][remote_file_size]': size, 
                 'work[title]': caption,
                 'work[description]': description, 
                 'work[tag_field]': ','.join(tags), 
@@ -125,41 +126,32 @@ class RedBubbleClient(object):
                 'work[media_codes][painting]': '0', 
                 'work[media_codes][drawing]': '0', 
                 'work[media_codes][digital]': '0', 
-                'work[hidden]': '1' if self.debug else '0', 
+                'work[hidden]': 'true' if self.debug else 'false', 
                 'work[not_safe_for_work]': '0', 
                 'work[group_ids][-1]': '', 
-                'work[available_product_types][13]': '0',
-                'work[available_product_types][13]': '1',
-                'work[available_product_types][19]': '0', 
-                'work[available_product_types][19]': '1', 
-                'work[available_product_types][16]': '0', 
-                'work[available_product_types][16]': '1', 
-                'work[available_product_types][9]': '0', 
-                'work[available_product_types][9]': '1', 
-                'work[available_product_types][8]': '0', 
-                'work[available_product_types][8]': '1', 
-                'work[available_product_types][12]': '0', 
-                'work[available_product_types][12]': '1', 
-                'work[available_product_types][7]': '0', 
-                'work[available_product_types][7]': '1', 
-                'work[available_product_types][14]': '0', 
-                'work[available_product_types][14]': '1', 
-                'work[markup_percentage]': str(markup),
+                'work[available_product_types][]': product_types,
             }
+        for type in product_types:
+            data['work[product_type_options][%s][markup]' % type] = str(markup)
+
         for tag in tags:
             if tag in self._groupmappings:
                 data['work[group_ids][%s]' % self._groupmappings[tag]] = '1'
-
+        print data
         response = requests.post('http://www.redbubble.com/mybubble/art', data=data, cookies=self.cookiejar)
         print response.status_code
         if self.debug:
             print response.headers
             print response.content
+        try: 
+            results = re.search('rel="canonical" href="([^"]*)"', response.content)
+            url = results.group(1)
+            results = re.search('id="main-image" src="(http[^"]*jpg)"', response.content)
+            thumburl = results.group(1)
+        except:
+            print response.headers
+            print response.content
+            raise
         
-        results = re.search('mybubble\/art\/([^\/]*)\/', response.content)
-        url = results.group(1)
-        results = re.search('id="main-image" src="(http[^"]*jpg)"', response.content)
-        thumburl = results.group(1)
-        
-        return "http://www.redbubble.com/people/%s/art/%s" % (self.user, url), thumburl
+        return url, thumburl
 
